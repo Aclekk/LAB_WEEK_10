@@ -3,12 +3,15 @@ package com.example.lab_week_10
 import android.os.Bundle
 import android.widget.Button
 import android.widget.TextView
+import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
 import androidx.lifecycle.ViewModelProvider
 import androidx.room.Room
 import com.example.lab_week_10.database.Total
 import com.example.lab_week_10.database.TotalDatabase
+import com.example.lab_week_10.database.TotalObject
 import com.example.lab_week_10.viewmodels.TotalViewModel
+import java.util.Date
 
 class MainActivity : AppCompatActivity() {
 
@@ -29,6 +32,20 @@ class MainActivity : AppCompatActivity() {
 
         // Prepare the ViewModel
         prepareViewModel()
+    }
+
+    override fun onStart() {
+        super.onStart()
+        // Show toast with the last update date
+        val total = db.totalDao().getTotal(ID)
+        if (total.isNotEmpty()) {
+            val lastDate = total.first().total.date
+            Toast.makeText(
+                this,
+                "Last updated: $lastDate",
+                Toast.LENGTH_LONG
+            ).show()
+        }
     }
 
     private fun updateText(total: Int) {
@@ -52,23 +69,41 @@ class MainActivity : AppCompatActivity() {
         return Room.databaseBuilder(
             applicationContext,
             TotalDatabase::class.java, "total-database"
-        ).allowMainThreadQueries().build()
+        )
+            .fallbackToDestructiveMigration() // Add this for version change
+            .allowMainThreadQueries()
+            .build()
     }
 
     // Initialize the value from database
     private fun initializeValueFromDatabase() {
         val total = db.totalDao().getTotal(ID)
         if (total.isEmpty()) {
-            db.totalDao().insert(Total(id = 1, total = 0))
+            // Insert with current date
+            db.totalDao().insert(
+                Total(
+                    id = 1,
+                    total = TotalObject(value = 0, date = Date().toString())
+                )
+            )
         } else {
-            viewModel.setTotal(total.first().total)
+            viewModel.setTotal(total.first().total.value)
         }
     }
 
     // Update database when activity is paused
     override fun onPause() {
         super.onPause()
-        db.totalDao().update(Total(ID, viewModel.total.value!!))
+        // Update with current date
+        db.totalDao().update(
+            Total(
+                ID,
+                TotalObject(
+                    value = viewModel.total.value!!,
+                    date = Date().toString()
+                )
+            )
+        )
     }
 
     companion object {
